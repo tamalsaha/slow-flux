@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"k8s.io/client-go/rest"
 
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2/klogr"
-	kubedbscheme "kubedb.dev/apimachinery/client/clientset/versioned/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -17,15 +17,18 @@ import (
 func NewClient() (client.Client, error) {
 	scheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)
-	// NOTE: Register KubeDB api types
-	_ = kubedbscheme.AddToScheme(scheme)
 
 	ctrl.SetLogger(klogr.New())
 	cfg := ctrl.GetConfigOrDie()
 	cfg.QPS = 100
 	cfg.Burst = 100
 
-	mapper, err := apiutil.NewDynamicRESTMapper(cfg)
+	hc, err := rest.HTTPClientFor(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	mapper, err := apiutil.NewDynamicRESTMapper(cfg, hc)
 	if err != nil {
 		return nil, err
 	}
